@@ -1,6 +1,6 @@
 # Vulnerability Triage Agent
 
-An autonomous security agent that accepts a target IP, orchestrates its own tool execution, and produces a professional findings report — without being told what to do at each step.
+An autonomous security agent that accepts one or more targets (IP, hostname, or CIDR), orchestrates its own tool execution, and produces a professional findings report — without being told what to do at each step.
 
 Built with LangGraph + Ollama. Runs entirely on local hardware. No cloud dependencies.
 
@@ -73,7 +73,7 @@ This is the same planner-executor pattern used in production agentic systems. Th
 | LLM backend      | Ollama (local)                       |
 | Model            | Llama 3.1 8B                      |
 | Network scanning | Nmap                                 |
-| CVE data         | NIST NVD API (free, unauthenticated) |
+| CVE data         | NIST NVD API (free; optional API key) |
 | Hardware         | RTX 3060 Ti 8GB (Thunderbolt 4 eGPU) |
 
 ---
@@ -87,9 +87,12 @@ git clone https://github.com/sudoinference/vuln-triage-agent.git
 cd vuln-triage-agent
 python -m venv venv
 venv\Scripts\activate        # Windows
+source venv/bin/activate     # Linux/macOS
 pip install -r requirements.txt
 ollama pull llama3.1:8b
 ```
+
+Optional: create a `.env` file in the project root to enable an NVD API key and tune coverage — see [NVD API key & service coverage](#nvd-api-key--service-coverage-optional).
 
 **Run:**
 ```bash
