@@ -93,12 +93,27 @@ ollama pull llama3.1:8b
 
 **Run:**
 ```bash
-python src\main.py 127.0.0.1          # scan localhost
-python src\main.py 192.168.1.1        # scan a network target
-python src\main.py scanme.nmap.org    # scan Nmap's legal test host
+python src\main.py 127.0.0.1          # Windows
+python src/main.py 127.0.0.1          # Linux/macOS
+python src/main.py scanme.nmap.org    # Nmap's legal test host
 ```
 
 Reports are saved to `/reports` as `.md`. Delete the folder to clear all reports — it recreates itself on the next run.
+
+### NVD API key & service coverage (optional)
+
+By default the agent runs with **no API key** and triages up to **5 services** per scan, spacing requests ~6s apart to stay under NIST NVD's free rate limit (~5 requests / 30s). This works out of the box with no signup.
+
+To triage more services and run faster, register for a free [NVD API key](https://nvd.nist.gov/developers/request-an-api-key) (raises the limit to ~50 requests / 30s). Configure it with environment variables, e.g. in a `.env` file at the project root:
+
+```bash
+# .env  (gitignored — never commit this)
+NVD_API_KEY=your-key-here     # optional; enables faster throttle + higher default cap
+MAX_SERVICES=25               # optional; default is 5 without a key, 25 with one
+NVD_RESULTS_PER_SERVICE=3     # optional; CVEs requested per service (default 3)
+```
+
+With a key present the default service cap rises to 25; set `MAX_SERVICES` to any value to override it in either direction. The agent never fails if the key is absent — it simply falls back to the slower, 5-service behavior.
 
 ---
 
@@ -106,7 +121,7 @@ Reports are saved to `/reports` as `.md`. Delete the folder to clear all reports
 
 
 
-**NVD rate limiting** — without an API key, NIST NVD limits requests to 5 per 30 seconds. The agent caps lookups at 5 services per run. Register for a [free NVD API key](https://nvd.nist.gov/developers/request-an-api-key) and add it as a header to remove this constraint.
+**NVD rate limiting** — without an API key, NIST NVD limits requests to ~5 per 30 seconds. The agent throttles requests (~6s apart) and retries on HTTP 403/429 to stay within this limit, capping lookups at 5 services per run by default. Set `NVD_API_KEY` (see [NVD API key & service coverage](#nvd-api-key--service-coverage-optional)) to raise the limit to ~50/30s, throttle faster, and lift the default cap to 25 services.
 
 **CVE relevance** — the agent retrieves CVEs based on keyword search, not fingerprint matching. Some returned CVEs may not apply to the specific version detected. Results should be verified before acting on them.
 

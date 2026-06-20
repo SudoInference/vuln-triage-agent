@@ -20,6 +20,8 @@ Markdown findings report. It runs entirely locally with no cloud dependencies.
 - `src/agent/planner.py` - `planner` node. LLM decides the next action from a 3-line
   state summary.
 - `src/agent/tools.py` - tool nodes: `run_nmap`, `lookup_cves`, `write_report`.
+- `src/agent/nvd.py` - NIST NVD client: API-key support, rate-limit throttling,
+  retry/backoff, and the key-aware service cap. All NVD access goes through here.
 - `src/agent/state.py` - `AgentState` TypedDict shared between all nodes.
 - `src/agent/__init__.py` - exports `build_graph`, `AgentState`.
 - `tests/test_ollama.py` - smoke test for the Ollama connection.
@@ -95,8 +97,12 @@ under `tests/`.
 - Adding a new tool node requires three edits: implement the node in `tools.py`, add a
   matching `next_action` string + route in `route_next_action` and `build_graph`
   (`graph.py`), and update the planner prompt/fallback in `planner.py`.
-- Network calls have timeouts (nmap 120s, NVD 10s). NVD lookups are capped at 5 services
-  per run to respect the unauthenticated rate limit (5 req / 30s). Preserve these caps.
+- Network calls have timeouts (nmap 120s, NVD 15s). NVD access is centralized in
+  `nvd.py`: it throttles requests (~6s without a key, ~0.7s with), retries on 403/429,
+  and caps services via `get_max_services()` (default 5 without `NVD_API_KEY`, 25 with;
+  `MAX_SERVICES` overrides). Do not re-add hard-coded caps or un-throttled requests.
+- Config is read from environment variables (loaded from a gitignored `.env` via
+  `python-dotenv`): `NVD_API_KEY`, `MAX_SERVICES`, `NVD_RESULTS_PER_SERVICE`.
 - Reports must not use Markdown tables (the report prompt enforces plain-text lists).
 
 ## Safety
