@@ -49,6 +49,8 @@ def run_triage(target: str):
     with open(f"{filename_base}.md", "w") as f:
         f.write(f"# Vulnerability Triage Report\n**Target:** {target}\n\n")
         f.write(final_report)
+        f.write("\n\n---\n")
+        f.write("_This product uses the NVD API but is not endorsed or certified by the NVD._\n")
 
 
     print(f"\n Markdown saved: {filename_base}.md")  

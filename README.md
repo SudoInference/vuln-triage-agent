@@ -115,6 +115,8 @@ NVD_RESULTS_PER_SERVICE=3     # optional; CVEs requested per service (default 3)
 
 With a key present the default service cap rises to 25; set `MAX_SERVICES` to any value to override it in either direction. The agent never fails if the key is absent — it simply falls back to the slower, 5-service behavior.
 
+> This product uses the NVD API but is not endorsed or certified by the NVD.
+
 ---
 
 ## Known Issues
