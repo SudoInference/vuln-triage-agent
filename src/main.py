@@ -1,14 +1,17 @@
 # main.py
 import os
+import sys
 from dotenv import load_dotenv
 from agent.graph import build_graph
 
 # Load .env (NVD_API_KEY, MAX_SERVICES, etc.) before anything reads the environment.
 load_dotenv()
 
-def run_triage(target: str):
-    graph = build_graph()
-    
+def run_triage(target: str, graph=None):
+    # Build the graph once and reuse it across targets when caller supplies one.
+    if graph is None:
+        graph = build_graph()
+
     initial_state = {
         "target": target,
         "scan_results": None,
@@ -46,18 +49,98 @@ def run_triage(target: str):
     safe_target = target.replace('.', '_').replace('/', '_')
     filename_base = f"reports/report_{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M')}"
 
-    with open(f"{filename_base}.md", "w") as f:
+    report_path = f"{filename_base}.md"
+    with open(report_path, "w") as f:
         f.write(f"# Vulnerability Triage Report\n**Target:** {target}\n\n")
         f.write(final_report)
         f.write("\n\n---\n")
         f.write("_This product uses the NVD API but is not endorsed or certified by the NVD._\n")
 
 
-    print(f"\n Markdown saved: {filename_base}.md")  
+    print(f"\n Markdown saved: {report_path}")
 
-    return state
+    return report_path
+
+
+def parse_targets_file(path: str) -> list:
+    """Read targets from a file: one per line, skipping blanks and # comments."""
+    with open(path) as f:
+        lines = f.readlines()
+    targets = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            targets.append(stripped)
+    return targets
+
+
+def collect_targets(positional: list, file_path: str) -> list:
+    """Combine positional targets and file targets, de-duplicated, order preserved."""
+    combined = list(positional)
+    if file_path:
+        combined.extend(parse_targets_file(file_path))
+
+    seen = set()
+    ordered = []
+    for target in combined:
+        if target not in seen:
+            seen.add(target)
+            ordered.append(target)
+    return ordered
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Autonomous vulnerability triage agent. Accepts one or more "
+                    "targets (IP, hostname, or CIDR) and writes one report per target."
+    )
+    parser.add_argument(
+        "targets", nargs="*",
+        help="One or more targets (IP, hostname, or CIDR network). "
+             "Defaults to 127.0.0.1 if none are given.",
+    )
+    parser.add_argument(
+        "-f", "--file",
+        help="Path to a file with one target per line (# comments and blanks ignored).",
+    )
+    args = parser.parse_args()
+
+    if args.file and not os.path.isfile(args.file):
+        print(
+            f"ERROR: target file not found: {args.file}\n"
+            "Copy targets.example.txt to targets.txt and add one target per line, e.g.:\n"
+            "    cp targets.example.txt targets.txt"
+        )
+        sys.exit(1)
+
+    targets = collect_targets(args.targets, args.file)
+    if not targets:
+        targets = ["127.0.0.1"]
+
+    # Build the graph once and reuse it for every target.
+    graph = build_graph()
+
+    results = []  # (target, report_path_or_None, error_or_None)
+    for target in targets:
+        try:
+            report_path = run_triage(target, graph=graph)
+            results.append((target, report_path, None))
+        except Exception as exc:
+            # Isolate failures so one bad target does not abort the whole batch.
+            print(f"\n ERROR triaging {target}: {exc}")
+            results.append((target, None, str(exc)))
+
+    print("\n" + "=" * 60)
+    print(f"RUN SUMMARY — {len(results)} target(s)")
+    print("=" * 60)
+    for target, report_path, error in results:
+        if error:
+            print(f"  [FAILED] {target}: {error}")
+        else:
+            print(f"  [OK]     {target} -> {report_path}")
+
 
 if __name__ == "__main__":
-    import sys
-    target = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-    run_triage(target)
+    main()

@@ -7,5 +7,9 @@ report_*.pdf
 .env
 notes.md
 reports/
+
+# User's scan target list — may contain sensitive internal IPs, keep local.
+# Use the tracked targets.example.txt as a template.
+targets.txt
 src/__pycache__/
 tests/__pycache__/

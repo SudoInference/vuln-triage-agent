@@ -1,0 +1,21 @@
+# Example target list for the vulnerability triage agent.
+#
+# To use it:
+#   1. Copy this file to targets.txt   ->   cp targets.example.txt targets.txt
+#   2. Edit targets.txt with your own targets (targets.txt is gitignored).
+#   3. Run:   python src/main.py --file targets.txt
+#
+# Rules:
+#   - One target per line.
+#   - Blank lines and lines starting with # are ignored.
+#   - A target may be an IP address, a hostname, or a CIDR network.
+#   - Only scan targets you have explicit permission to scan.
+
+# Nmap's legal public test host:
+scanme.nmap.org
+
+# A single host by IP:
+127.0.0.1
+
+# A CIDR network (scanned as a single nmap job — see the network-triage roadmap):
+# 192.168.1.0/24
