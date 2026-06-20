@@ -1,6 +1,10 @@
 # main.py
 import os
+from dotenv import load_dotenv
 from agent.graph import build_graph
+
+# Load .env (NVD_API_KEY, MAX_SERVICES, etc.) before anything reads the environment.
+load_dotenv()
 
 def run_triage(target: str):
     graph = build_graph()

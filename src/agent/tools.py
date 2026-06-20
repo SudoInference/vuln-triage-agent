@@ -1,6 +1,5 @@
 # agent/tools.py
 import subprocess
-import requests
 import json
 
 def run_nmap(state: dict) -> dict:
@@ -26,7 +25,8 @@ def run_nmap(state: dict) -> dict:
 
 def lookup_cves(state: dict) -> dict:
     from langchain_ollama import ChatOllama
-    
+    from agent import nvd
+
     llm = ChatOllama(model="llama3.1:8b", base_url="http://localhost:11434")
     messages = state.get("messages", [])
     scan_results = state.get("scan_results", "")
@@ -46,29 +46,33 @@ Example output: ["OpenSSH 6.6.1", "Apache httpd 2.4.7"]
     except Exception:
         services_to_search = []
 
+    # De-duplicate while preserving order, then cap at the key-aware ceiling.
+    seen = set()
+    unique_services = []
+    for service in services_to_search:
+        if service not in seen:
+            seen.add(service)
+            unique_services.append(service)
+
+    max_services = nvd.get_max_services()
+    services_to_query = unique_services[:max_services]
+
     cve_findings = []
-    for service in services_to_search[:5]:
-        try:
-            resp = requests.get(
-                "https://services.nvd.nist.gov/rest/json/cves/2.0",
-                params={"keywordSearch": service, "resultsPerPage": 3},
-                timeout=10
-            )
-            if resp.status_code == 200:
-                for v in resp.json().get("vulnerabilities", []):
-                    cve = v["cve"]
-                    cve_id = cve.get("id", "Unknown")
-                    desc = next((d["value"] for d in cve.get("descriptions", []) if d["lang"] == "en"), "")
-                    metrics = cve.get("metrics", {})
-                    score = "N/A"
-                    if "cvssMetricV31" in metrics:
-                        score = metrics["cvssMetricV31"][0]["cvssData"]["baseScore"]
-                    cve_findings.append(f"{cve_id} (CVSS: {score}): {desc[:200]}")
-        except Exception as e:
-            cve_findings.append(f"Lookup failed for '{service}': {str(e)}")
+    for service in services_to_query:
+        cve_findings.extend(nvd.search_cves(service))
 
     cve_output = "\n".join(cve_findings) if cve_findings else "No CVEs found."
-    messages.append(f"[CVE LOOKUP] Found {len(cve_findings)} potential vulnerabilities")
+
+    key_status = "with API key" if nvd.has_api_key() else "no API key"
+    skipped = len(unique_services) - len(services_to_query)
+    summary = (
+        f"[CVE LOOKUP] Found {len(cve_findings)} potential vulnerabilities "
+        f"across {len(services_to_query)} service(s) ({key_status}"
+    )
+    if skipped > 0:
+        summary += f"; {skipped} service(s) skipped over MAX_SERVICES limit"
+    summary += ")"
+    messages.append(summary)
     return {"cve_results": cve_output, "messages": messages}
 
 def write_report(state: dict) -> dict:
