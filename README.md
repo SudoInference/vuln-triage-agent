@@ -100,6 +100,23 @@ python src/main.py scanme.nmap.org    # Nmap's legal test host
 
 Reports are saved to `/reports` as `.md`. Delete the folder to clear all reports — it recreates itself on the next run.
 
+### Scanning multiple targets
+
+Pass several targets at once (each is triaged independently and gets its own report):
+
+```bash
+python src/main.py 127.0.0.1 scanme.nmap.org 192.168.1.10
+```
+
+Or feed a file with one target per line. Copy the tracked template and edit your own list (`targets.txt` is gitignored, so it stays local and is never committed):
+
+```bash
+cp targets.example.txt targets.txt    # then edit targets.txt
+python src/main.py --file targets.txt
+```
+
+In the file, blank lines and lines starting with `#` are ignored, and each target may be an IP, hostname, or CIDR. One report is written per target, and an end-of-run summary lists every result.
+
 ### NVD API key & service coverage (optional)
 
 By default the agent runs with **no API key** and triages up to **5 services** per scan, spacing requests ~6s apart to stay under NIST NVD's free rate limit (~5 requests / 30s). This works out of the box with no signup.
@@ -127,7 +144,7 @@ With a key present the default service cap rises to 25; set `MAX_SERVICES` to an
 
 **CVE relevance** — the agent retrieves CVEs based on keyword search, not fingerprint matching. Some returned CVEs may not apply to the specific version detected. Results should be verified before acting on them.
 
-**Subnet scanning** — CIDR notation is supported (e.g. 192.168.1.0/24) but results are degraded. The default nmap timeout of 120 seconds is insufficient to fingerprint service versions across a full subnet. Without version data, the CVE lookup has no search terms and returns zero findings. The report will reflect real host and port discovery but vulnerability analysis will be incomplete. For subnet scans, increase the timeout in tools.py and expect longer run times. Single target scanning is the validated use case.
+**Subnet scanning** — CIDR notation is supported (e.g. 192.168.1.0/24) but handled naively: the CIDR is passed to nmap as a single scan and produces one combined report, not a per-host assessment. The default nmap timeout of 120 seconds is also insufficient to fingerprint service versions across a full subnet, so without version data the CVE lookup has no search terms and returns zero findings. For subnet scans, increase the timeout in `tools.py` and expect longer run times. Single-target (or a list of targets via `--file`) is the validated use case. Intelligent per-host network assessment — host discovery, ecosystem fingerprinting, and heuristic prioritization — is planned; see [docs/network-triage-roadmap.md](docs/network-triage-roadmap.md).
 
 ---
 

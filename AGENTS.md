@@ -14,8 +14,10 @@ Markdown findings report. It runs entirely locally with no cloud dependencies.
 
 ## Layout
 
-- `src/main.py` - CLI entry point. Builds the graph, streams execution, prints and
-  saves the report to `reports/`.
+- `src/main.py` - CLI entry point (argparse). Accepts multiple targets (positional or
+  `--file`), builds the graph once, triages each target, and writes one report per
+  target to `reports/` plus an end-of-run summary.
+- `targets.example.txt` - tracked template for the gitignored `targets.txt` list.
 - `src/agent/graph.py` - LangGraph wiring: nodes, conditional routing, planner loop.
 - `src/agent/planner.py` - `planner` node. LLM decides the next action from a 3-line
   state summary.
@@ -69,12 +71,19 @@ Run (invoke `main.py` from the `src/` directory or as `src/main.py` so the
 `from agent...` imports resolve):
 
 ```bash
-python src/main.py 127.0.0.1          # scan localhost
-python src/main.py scanme.nmap.org    # Nmap's legal test host
+python src/main.py 127.0.0.1                      # single target
+python src/main.py 127.0.0.1 scanme.nmap.org      # multiple targets
+python src/main.py --file targets.txt             # one target per line (# comments ok)
 ```
 
+Each target (IP, hostname, or CIDR) is triaged independently and gets its own
+report; the graph is built once and reused, failures are isolated per target, and
+an end-of-run summary is printed. CIDR targets are passed to nmap as a single naive
+scan (see `docs/network-triage-roadmap.md` for the planned per-host assessment).
+
 Reports are written to `reports/` (auto-created) as
-`report_<target>_<timestamp>.md`. The folder is gitignored.
+`report_<target>_<timestamp>.md`. The folder is gitignored. `targets.txt` is also
+gitignored (may contain sensitive IPs); `targets.example.txt` is the tracked template.
 
 Test (Ollama connectivity smoke test):
 
